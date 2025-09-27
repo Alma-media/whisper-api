@@ -9,6 +9,14 @@ source .venv/bin/activate
 uv sync
 ```
 
+## Environment variables
+
+**VARIABLE**            | **DESCRIPTION**                                                                | **TYPE** | **DEFAULT**
+------------------------|--------------------------------------------------------------------------------|----------|------------
+WHISPER_MODEL           | One of the Whisper models (`tiny`, `base`, `small`, `medium`, `large-v3`, ...) | string   | `tiny`
+WHISPER_DEVICE          | Whisper device CPU (`cpu`) / GPU (`cuda`)                                      | string   | `cuda`
+WHISPER_DOWNLOAD_FOLDER | Folder for downloaded models                                                   | string   |
+
 ## Run
 ```bash
 WHISPER_MODEL=tiny WHISPER_DEVICE=cuda WHISPER_DOWNLOAD_FOLDER=/home/alma/LLM uv run uvicorn main:app --host 0.0.0.0 --port 8000
