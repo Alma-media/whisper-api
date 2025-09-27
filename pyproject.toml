@@ -1,0 +1,11 @@
+[project]
+name = "whisper-api"
+version = "0.1.0"
+description = "Simple configurable Whisper API server"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.117.1",
+    "openai-whisper>=20250625",
+    "uvicorn>=0.37.0",
+]
