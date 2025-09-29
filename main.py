@@ -13,6 +13,10 @@ model = whisper.load_model(
     download_root=ROOT,
 )
 
+@app.get("/health")
+async def health():
+    return {"status": "ok", "model": MODEL_SIZE, "device": DEVICE}
+
 @app.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)):
     temp_file_path = f"/tmp/{file.filename}"

@@ -12,10 +12,24 @@ uv sync
 ## Environment variables
 
 **VARIABLE**            | **DESCRIPTION**                                                                | **TYPE** | **DEFAULT**
-------------------------|--------------------------------------------------------------------------------|----------|------------
+------------------------|--------------------------------------------------------------------------------|----------|-----------------
 WHISPER_MODEL           | One of the Whisper models (`tiny`, `base`, `small`, `medium`, `large-v3`, ...) | string   | `tiny`
 WHISPER_DEVICE          | Whisper device CPU (`cpu`) / GPU (`cuda`)                                      | string   | `cuda`
-WHISPER_DOWNLOAD_FOLDER | Folder for downloaded models                                                   | string   |
+WHISPER_DOWNLOAD_FOLDER | Folder for downloaded models (mount as volume for persistence)                 | string   | `/home/alma/LLM`
+
+## Pre-downloading Models
+
+To avoid downloading models every time a container starts, pre-download them to a host directory:
+
+```bash
+# Create models directory
+mkdir -p /home/alma/LLM
+
+# Pre-download models using Python
+python -c "import whisper; whisper.load_model('tiny', download_root='/home/alma/LLM')"
+python -c "import whisper; whisper.load_model('base', download_root='/home/alma/LLM')"
+python -c "import whisper; whisper.load_model('small', download_root='/home/alma/LLM')"
+```
 
 ## Run
 ```bash
@@ -53,10 +67,68 @@ sudo systemctl restart docker
 ```bash
 docker build -t whisper-api-server .
 ```
-6. Run the container
+6. Run the container with volume mounting
+
+**Important**: Mount your models directory as a volume to avoid re-downloading models on each container restart.
+
 ```bash
-# CPU (bind to host port 8001)
-docker run -e WHISPER_MODEL=tiny -e WHISPER_DEVICE=cpu --name whisper-tiny-cpu --restart unless-stopped -p 8001:8000 -d whisper-api-server
-# GPU (bind to host port 8002)
-docker run -e WHISPER_MODEL=tiny --runtime=nvidia --gpus all -e WHISPER_DEVICE=cuda -e WHISPER_DOWNLOAD_FOLDER=/home/alma/LLM --name whisper-tiny-cuda --restart unless-stopped -p 8002:8000 -d whisper-api-server
+# CPU with volume mount (bind to host port 8001)
+docker run \
+  -e WHISPER_MODEL=base \
+  -e WHISPER_DEVICE=cpu \
+  -e WHISPER_DOWNLOAD_FOLDER=/home/alma/LLM \
+  -v /home/alma/LLM:/home/alma/LLM:ro \
+  --name whisper-base-cpu \
+  --restart unless-stopped \
+  -p 8001:8000 \
+  -d whisper-api-server
+
+# GPU with volume mount (bind to host port 8002)
+docker run \
+  -e WHISPER_MODEL=small \
+  --runtime=nvidia --gpus all \
+  -e WHISPER_DEVICE=cuda \
+  -e WHISPER_DOWNLOAD_FOLDER=/home/alma/LLM \
+  -v /home/alma/LLM:/home/alma/LLM:ro \
+  --name whisper-small-cuda \
+  --restart unless-stopped \
+  -p 8002:8000 \
+  -d whisper-api-server
+```
+
+## API Endpoints
+
+### Health Check
+```bash
+GET /health
+```
+Returns service status, model information, and device configuration.
+
+Example response:
+```json
+{
+  "status": "ok",
+  "model": "base",
+  "device": "cuda"
+}
+```
+
+### Transcribe Audio
+```bash
+POST /transcribe
+```
+Upload an audio file for transcription.
+
+Example usage:
+```bash
+curl -X POST "http://localhost:8001/transcribe" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@audio.wav"
+```
+
+Example response:
+```json
+{
+  "text": "This is the transcribed text from the audio file."
+}
 ```
