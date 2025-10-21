@@ -1,0 +1,33 @@
+FROM python:3.13-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy all files first
+COPY . .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    fastapi[standard]>=0.117.1 \
+    openai-whisper>=20250625 \
+    uvicorn>=0.37.0 \
+    mcp>=1.0.0
+
+# Set environment variables
+ENV WHISPER_MODEL=tiny
+ENV WHISPER_DEVICE=cpu
+ENV WHISPER_DOWNLOAD_FOLDER=/app/models
+
+# Create models directory
+RUN mkdir -p /app/models
+
+# Pre-download and cache the default model to avoid startup delays
+RUN python -c "import whisper; whisper.load_model('tiny', download_root='/app/models')"
+
+# Set entrypoint to MCP server
+ENTRYPOINT ["python", "run_mcp_server.py"]

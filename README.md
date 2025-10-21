@@ -1,5 +1,5 @@
 # Whisper API server
-This repositry provides simple HTTP API for [OpenAI Whisper](https://github.com/openai/whisper) (general-purpose speech recognition model).
+This repository provides simple HTTP API for [OpenAI Whisper](https://github.com/openai/whisper) (general-purpose speech recognition model) with MCP (Model Context Protocol) support.
 
 ## Prepare
 - Virtual environment
@@ -31,10 +31,40 @@ python -c "import whisper; whisper.load_model('base', download_root='/home/alma/
 python -c "import whisper; whisper.load_model('small', download_root='/home/alma/LLM')"
 ```
 
-## Run
+## Running
+
+### HTTP API Server
+
 ```bash
 WHISPER_MODEL=tiny WHISPER_DEVICE=cuda WHISPER_DOWNLOAD_FOLDER=/home/alma/LLM uv run uvicorn main:app --host 0.0.0.0 --port 8000
 ```
+
+### MCP Server
+
+Run as an MCP (Model Context Protocol) server for integration with MCP-compatible clients:
+
+#### Option 1: Local Python
+```bash
+source .venv/bin/activate
+WHISPER_MODEL=tiny WHISPER_DEVICE=cuda WHISPER_DOWNLOAD_FOLDER=/home/alma/LLM python run_mcp_server.py
+```
+
+#### Option 2: Docker (Recommended)
+```bash
+# Using the convenience script
+./run_mcp_docker.sh tiny cpu
+
+# Or manually with docker
+docker build -f Dockerfile.mcp -t whisper-mcp .
+docker run -i --rm -e WHISPER_MODEL=tiny -e WHISPER_DEVICE=cpu whisper-mcp
+```
+
+**Note:** The Docker image pre-downloads the `tiny` model during build to avoid startup delays and MCP client timeouts. The container starts immediately without model download time.
+
+The MCP server runs independently from the HTTP API and communicates via stdin/stdout. It provides the following tools:
+- **transcribe_audio**: Transcribe audio files with full parameter control
+- **get_model_info**: Get information about the loaded Whisper model
+- **list_supported_languages**: List all supported languages for transcription
 
 ## Docker
 
@@ -132,3 +162,110 @@ Example response:
   "text": "This is the transcribed text from the audio file."
 }
 ```
+
+## MCP (Model Context Protocol) Integration
+
+The Whisper API service includes a separate MCP server implementation (`run_mcp_server.py`) that runs independently from the HTTP API, allowing integration with MCP-compatible clients like Claude Desktop, IDEs, and other AI tools.
+
+### MCP Server Configuration
+
+To use the Whisper API service as an MCP server, add it to your MCP client configuration:
+
+**For Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+#### Local Python Configuration:
+```json
+{
+  "mcpServers": {
+    "whisper-transcription": {
+      "command": "python",
+      "args": ["/path/to/whisper-api/run_mcp_server.py"],
+      "env": {
+        "WHISPER_MODEL": "tiny",
+        "WHISPER_DEVICE": "cpu",
+        "WHISPER_DOWNLOAD_FOLDER": "/home/alma/LLM"
+      }
+    }
+  }
+}
+```
+
+#### Docker Configuration:
+```json
+{
+  "mcpServers": {
+    "whisper-transcription": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "WHISPER_MODEL=tiny",
+        "-e", "WHISPER_DEVICE=cpu",
+        "-v", "whisper-models:/app/models",
+        "whisper-mcp"
+      ]
+    }
+  }
+}
+```
+
+**For MCP Inspector**, use these settings:
+- **Transport Type**: STDIO  
+- **Command**: `docker`
+- **Arguments**: `run -i --rm -e WHISPER_MODEL=tiny -e WHISPER_DEVICE=cpu whisper-mcp`
+
+![MCP Inspector](img/mcp-inspector.png)
+
+**Note:** The Docker container includes a pre-loaded `tiny` model to prevent initialization loops and ensure fast startup for MCP clients.
+
+### MCP Tools Available
+
+When running as an MCP server, the following tools are available:
+
+#### 1. transcribe_audio
+Transcribe audio files to text using Whisper. Accepts base64-encoded audio data.
+
+**Parameters:**
+- `audio_data` (required): Base64-encoded audio file data
+- `filename` (optional): Original filename for format detection
+- `language` (optional): Language code (e.g., 'en', 'es', 'fr') for transcription
+- `task` (optional): 'transcribe' or 'translate' (default: transcribe)
+- `temperature` (optional): Sampling temperature (0.0 to 1.0)
+- `best_of` (optional): Number of candidates when sampling
+- `beam_size` (optional): Number of beams in beam search
+
+#### 2. get_model_info
+Get detailed information about the loaded Whisper model including dimensions, supported tasks, and configuration.
+
+**Parameters:** None
+
+#### 3. list_supported_languages
+List all languages supported by Whisper for transcription with their language codes.
+
+**Parameters:** None
+
+### Running Both Services
+
+You can run both the HTTP API and MCP server simultaneously since they operate independently:
+
+```bash
+# Terminal 1: Start HTTP API server
+WHISPER_MODEL=tiny WHISPER_DEVICE=cuda uvicorn main:app --host 0.0.0.0 --port 8000
+
+# Terminal 2: Start MCP server (choose one option)
+# Option A: Local Python
+WHISPER_MODEL=tiny WHISPER_DEVICE=cuda python run_mcp_server.py
+
+# Option B: Docker (recommended)
+./run_mcp_docker.sh tiny cpu
+```
+
+### MCP Usage Examples
+
+Once configured with an MCP client, you can use natural language to interact with the transcription service:
+
+- "Transcribe this audio file to text"
+- "What Whisper model is currently loaded?"
+- "List all supported languages for transcription"
+- "Transcribe this audio and translate it to English"
+
+The MCP server will handle the tool calls and return transcription results with detailed information about the audio processing.

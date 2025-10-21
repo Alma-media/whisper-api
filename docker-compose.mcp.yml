@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  whisper-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    volumes:
+      # Mount directory for Whisper model cache (optional)
+      - whisper-models:/app/models
+    environment:
+      - WHISPER_MODEL=tiny
+      - WHISPER_DEVICE=cpu
+      - WHISPER_DOWNLOAD_FOLDER=/app/models
+    # MCP servers typically run interactively via stdin/stdout
+    # This container is designed to be used with docker run -i
+    stdin_open: true
+    tty: false
+
+volumes:
+  whisper-models:

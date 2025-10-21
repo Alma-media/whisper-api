@@ -8,4 +8,5 @@ dependencies = [
     "fastapi[standard]>=0.117.1",
     "openai-whisper>=20250625",
     "uvicorn>=0.37.0",
+    "mcp>=1.0.0",
 ]
