@@ -213,6 +213,11 @@ To use the Whisper API service as an MCP server, add it to your MCP client confi
 - **Command**: `docker`
 - **Arguments**: `run -i --rm -e WHISPER_MODEL=tiny -e WHISPER_DEVICE=cpu whisper-mcp`
 
+ **Run inspector**
+```bash
+npx @modelcontextprotocol/inspector
+```
+
 ![MCP Inspector](img/mcp-inspector.png)
 
 **Note:** The Docker container includes a pre-loaded `tiny` model to prevent initialization loops and ensure fast startup for MCP clients.
